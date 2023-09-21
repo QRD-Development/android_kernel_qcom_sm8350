@@ -21,10 +21,6 @@ static u32 simplefb_x, simplefb_y;
 static u64 fb_base;
 static void *simplefb_fb;
 
-struct screen_info screen_info;
-
-#define BITS_TO_BYTES(nr)	DIV_ROUND_UP(nr, BITS_PER_TYPE(char))
-
 static int __init simplefb_earlycon_remap_fb(void)
 {
 	/* bail if there is no bootconsole or it has been disabled already */
@@ -212,7 +208,7 @@ static int __init simplefb_earlycon_setup(struct earlycon_device *device,
 
 	si = &screen_info;
 
-	if (!port->mapbase || !device->options)
+	if (!port->mapbase)
 		return -ENODEV;
 
 	ret = sscanf(device->options, "%u,%u", &xres, &yres);
