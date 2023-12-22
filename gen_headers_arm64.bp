@@ -936,6 +936,7 @@ gen_headers_out_arm64 = [
     "scsi/fc/fc_fs.h",
     "scsi/fc/fc_gs.h",
     "scsi/fc/fc_ns.h",
+    "scsi/ufs/ioctl.h",
     "sound/sof/abi.h",
     "sound/sof/fw.h",
     "sound/sof/header.h",
