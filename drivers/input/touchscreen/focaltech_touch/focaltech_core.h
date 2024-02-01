@@ -302,6 +302,7 @@ struct fts_ts_data {
 	atomic_t delayed_vm_probe_pending;
 	atomic_t trusted_touch_mode;
 #endif
+	int double_tap_pressed;
 };
 
 enum _FTS_BUS_TYPE {
