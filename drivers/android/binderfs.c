@@ -59,10 +59,20 @@ enum binderfs_stats_mode {
 	STATS_GLOBAL,
 };
 
+struct binder_features {
+	bool oneway_spam_detection;
+	bool freeze_notification;
+};
+
 static const match_table_t tokens = {
 	{ Opt_max, "max=%d" },
 	{ Opt_stats_mode, "stats=%s" },
 	{ Opt_err, NULL     }
+};
+
+static struct binder_features binder_features = {
+	.oneway_spam_detection = true,
+	.freeze_notification = true,
 };
 
 static inline struct binderfs_info *BINDERFS_I(const struct inode *inode)
@@ -589,6 +599,39 @@ out:
 	return dentry;
 }
 
+static int binder_features_show(struct seq_file *m, void *unused)
+{
+	bool *feature = m->private;
+
+	seq_printf(m, "%d\n", *feature);
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(binder_features);
+
+static int init_binder_features(struct super_block *sb)
+{
+	struct dentry *dentry, *dir;
+
+	dir = binderfs_create_dir(sb->s_root, "features");
+	if (IS_ERR(dir))
+		return PTR_ERR(dir);
+
+	dentry = binderfs_create_file(dir, "oneway_spam_detection",
+				      &binder_features_fops,
+				      &binder_features.oneway_spam_detection);
+	if (IS_ERR(dentry))
+		return PTR_ERR(dentry);
+
+	dentry = binderfs_create_file(dir, "freeze_notification",
+				      &binder_features_fops,
+				      &binder_features.freeze_notification);
+	if (IS_ERR(dentry))
+		return PTR_ERR(dentry);
+
+	return 0;
+}
+
 static int init_binder_logs(struct super_block *sb)
 {
 	struct dentry *binder_logs_root_dir, *dentry, *proc_log_dir;
@@ -616,8 +659,22 @@ static int init_binder_logs(struct super_block *sb)
 		goto out;
 	}
 
+	dentry = binderfs_create_file(binder_logs_root_dir, "state_hashed",
+				      &binder_state_hashed_fops, NULL);
+	if (IS_ERR(dentry)) {
+		ret = PTR_ERR(dentry);
+		goto out;
+	}
+
 	dentry = binderfs_create_file(binder_logs_root_dir, "transactions",
 				      &binder_transactions_fops, NULL);
+	if (IS_ERR(dentry)) {
+		ret = PTR_ERR(dentry);
+		goto out;
+	}
+
+	dentry = binderfs_create_file(binder_logs_root_dir, "transactions_hashed",
+				      &binder_transactions_hashed_fops, NULL);
 	if (IS_ERR(dentry)) {
 		ret = PTR_ERR(dentry);
 		goto out;
@@ -729,6 +786,10 @@ static int binderfs_fill_super(struct super_block *sb, void *data, int silent)
 		if (*name == ',')
 			name++;
 	}
+
+	ret = init_binder_features(sb);
+	if (ret)
+		return ret;
 
 	if (info->mount_opts.stats_mode == STATS_GLOBAL)
 		return init_binder_logs(sb);

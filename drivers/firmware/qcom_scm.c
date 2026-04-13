@@ -207,6 +207,25 @@ void qcom_scm_set_download_mode(enum qcom_download_mode mode,
 }
 EXPORT_SYMBOL(qcom_scm_set_download_mode);
 
+int qcom_scm_get_download_mode(unsigned int *mode, phys_addr_t tcsr_boot_misc)
+{
+	int ret = -EINVAL;
+	struct device *dev = __scm ? __scm->dev : NULL;
+
+	if (tcsr_boot_misc || (__scm && __scm->dload_mode_addr)) {
+		ret = qcom_scm_io_readl(tcsr_boot_misc ? : __scm->dload_mode_addr, mode);
+	} else {
+		dev_err(dev,
+			"No available mechanism for getting download mode\n");
+	}
+
+	if (ret)
+		dev_err(dev, "failed to get download mode: %d\n", ret);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(qcom_scm_get_download_mode);
+
 int qcom_scm_config_cpu_errata(void)
 {
 	return __qcom_scm_config_cpu_errata(__scm->dev);
@@ -1229,8 +1248,6 @@ static void qcom_scm_shutdown(struct platform_device *pdev)
 {
 	qcom_scm_disable_sdi();
 	qcom_scm_halt_spmi_pmic_arbiter();
-	/* Clean shutdown, disable download mode to allow normal restart */
-	qcom_scm_set_download_mode(QCOM_DOWNLOAD_NODUMP, 0);
 }
 
 static const struct of_device_id qcom_scm_dt_match[] = {

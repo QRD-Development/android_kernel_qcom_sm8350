@@ -8,6 +8,10 @@
 #include <linux/string.h>
 #include <uapi/linux/if_ether.h>
 
+struct bpf_prog;
+struct net;
+struct sk_buff;
+
 /**
  * struct flow_dissector_key_control:
  * @thoff: Transport header offset
@@ -159,20 +163,33 @@ struct flow_dissector_key_ports {
 };
 
 /**
- * flow_dissector_key_icmp:
- *	@ports: type and code of ICMP header
- *		icmp: ICMP type (high) and code (low)
- *		type: ICMP type
- *		code: ICMP code
+ * struct flow_dissector_key_ports_range
+ * @tp: port number from packet
+ * @tp_min: min port number in range
+ * @tp_max: max port number in range
  */
-struct flow_dissector_key_icmp {
+struct flow_dissector_key_ports_range {
 	union {
-		__be16 icmp;
+		struct flow_dissector_key_ports tp;
 		struct {
-			u8 type;
-			u8 code;
+			struct flow_dissector_key_ports tp_min;
+			struct flow_dissector_key_ports tp_max;
 		};
 	};
+};
+
+/**
+ * flow_dissector_key_icmp:
+ *		type: ICMP type
+ *		code: ICMP code
+ *		id:   session identifier
+ */
+struct flow_dissector_key_icmp {
+	struct {
+		u8 type;
+		u8 code;
+	};
+	u16 id;
 };
 
 /**
@@ -287,6 +304,8 @@ struct flow_keys {
 	struct flow_dissector_key_vlan cvlan;
 	struct flow_dissector_key_keyid keyid;
 	struct flow_dissector_key_ports ports;
+	struct flow_dissector_key_icmp icmp;
+	/* 'addrs' must be the last member */
 	struct flow_dissector_key_addrs addrs;
 };
 
@@ -320,6 +339,9 @@ static inline bool flow_keys_have_l4(const struct flow_keys *keys)
 }
 
 u32 flow_hash_from_keys(struct flow_keys *keys);
+void skb_flow_get_icmp_tci(const struct sk_buff *skb,
+			   struct flow_dissector_key_icmp *key_icmp,
+			   void *data, int thoff, int hlen);
 
 static inline bool dissector_uses_key(const struct flow_dissector *flow_dissector,
 				      enum flow_dissector_key_id key_id)
@@ -348,5 +370,10 @@ flow_dissector_init_keys(struct flow_dissector_key_control *key_control,
 	memset(key_control, 0, sizeof(*key_control));
 	memset(key_basic, 0, sizeof(*key_basic));
 }
+
+#ifdef CONFIG_BPF_SYSCALL
+int flow_dissector_bpf_prog_attach_check(struct net *net,
+					 struct bpf_prog *prog);
+#endif /* CONFIG_BPF_SYSCALL */
 
 #endif
